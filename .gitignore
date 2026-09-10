@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Secrets — ne JAMAIS committer
+.env
+.env.*
+!.env.example
+service-account.json
+!service-account.json.example
+*.pem
+*.key
+credentials*.json
+token*.json
+
+# Bases de données locales de l'agent
+*.db
+*.sqlite
+*.sqlite3
+
+# Journaux et divers
+*.log
+logs/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+coverage/

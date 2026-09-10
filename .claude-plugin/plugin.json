@@ -1,0 +1,8 @@
+{
+  "name": "local-agent-builder",
+  "description": "Construire, sécuriser et étendre un agent d'IA personnel local piloté par un canal de messagerie : liste blanche, boucle bornée, outils validés, mémoire SQLite, approbation humaine. Skill évolutif et versionné : il reflète l'état validé du projet, avec détecteur de dérive, rafraîchissement de la référence et historique de traçabilité.",
+  "author": {
+    "name": "OpenGravity"
+  },
+  "version": "1.1.0"
+}

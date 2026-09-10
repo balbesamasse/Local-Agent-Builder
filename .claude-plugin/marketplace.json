@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "local-agent-builder",
+  "owner": {
+    "name": "OpenGravity"
+  },
+  "metadata": {
+    "description": "Skills pour construire, sécuriser et étendre des agents IA personnels locaux pilotés par un canal de messagerie.",
+    "version": "1.1.0"
+  },
+  "plugins": [
+    {
+      "name": "local-agent-builder",
+      "description": "Créer un agent personnel local (liste blanche, boucle bornée, outils validés, mémoire SQLite, approbation humaine) à partir d'une implémentation de référence, avec générateur de projet, vérificateur d'invariants et synchronisation versionnée du skill sur l'état réel du projet.",
+      "category": "development",
+      "source": "./",
+      "strict": false
+    }
+  ]
+}

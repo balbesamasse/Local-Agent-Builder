@@ -1,0 +1,35 @@
+# --- Secrets : ne JAMAIS committer ---
+.env
+.env.*
+!.env.example
+service-account.json
+*.pem
+*.key
+credentials.json
+
+# --- Base de mémoire (contient vos données personnelles) ---
+memory.db
+memory.db-journal
+memory.db-wal
+memory.db-shm
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Build / dépendances ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# --- Journal : le dossier vit à côté du binaire, jamais dans l'histoire du dépôt ---
+logs/
+
+# --- Éditeurs / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Audio (par défaut rien n'y est écrit ; si une rétention est ajoutée un jour)
+media/

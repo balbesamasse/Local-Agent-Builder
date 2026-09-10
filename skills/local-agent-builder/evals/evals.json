@@ -1,0 +1,141 @@
+{
+  "skill_name": "local-agent-builder",
+  "note": "Six prompts réalistes, du plus proche du modèle (création) au plus éloigné (audit d'un agent existant écrit autrement), plus les évolutions déjà validées (voix, appel en direct) et la synchronisation du skill lui-même. Les assertions sont objectivement vérifiables : un correcteur peut les trancher en lisant la sortie, sans goût personnel.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "creation-complete",
+      "prompt": "Je veux un agent perso qui tourne sur mon Mac, accessible seulement par moi via Telegram, avec mémoire persistante et un outil pour l'heure. TypeScript, pas de serveur web. Aide-moi à le créer.",
+      "expected_output": "Un projet généré depuis la référence, renommé, dont npm run check est vert ; invariants vérifiés par check_invariants.py ; configuration .env expliquée avec /id pour récupérer le chat id ; réponse finale incluant explicitement ce qui n'a pas pu être prouvé (appel réel au fournisseur LLM).",
+      "assertions": [
+        "le projet généré est validé par `npm run check` et le résultat est cité tel quel",
+        "check_invariants.py est exécuté et son résultat est rapporté (score ou liste de correctifs)",
+        "la liste blanche est présentée comme obligatoire au démarrage (deny-by-default), pas optionnelle",
+        "la boucle d'agent est bornée en itérations ET une itération de clôture retire les outils",
+        "les instructions d'installation mentionnent le chat id numérique et la coupure de la commande /id après installation",
+        "aucun secret n'est demandé en clair dans le code (seulement dans .env) et la limite « mémoire non chiffrée » est signalée",
+        "les identifiants de modèles ne sont pas recopiés d'une doc : ils sont vérifiés contre GET /v1/models du compte, et le skill refuse d'épingler un nom non sondé"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "outil-sensible-a-ajouter",
+      "prompt": "Ajoute à mon agent un outil qui peut exécuter des commandes shell et écrire dans mes fichiers. Je veux garder le contrôle.",
+      "expected_output": "Outils marqués dangerous + requiresApproval, ajoutés derrière DANGEROUS_TOOLS_ENABLED, avec allowlist de commandes, refus des métacaractères, cwd borné avec realpath, timeout et sortie tronquée ; l'agent explique pourquoi une blacklist ne suffit pas et comment l'approbation par clic se déroule.",
+      "assertions": [
+        "requiresApproval: true ET dangerous: true sont posés sur l'outil",
+        "l'invariant « dangerous impose requiresApproval » est maintenu dans le registre, pas contourné",
+        "une allowlist (et non une blacklist) de commandes est proposée, avec refus des métacaractères",
+        "le chemin est borné à workspaceRoot et vérifié après résolution des liens symboliques",
+        "timeout et troncature de sortie sont présents",
+        "l'outil reste invisible au modèle tant que DANGEROUS_TOOLS_ENABLED=false"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "audit-dun-agent-existant",
+      "prompt": "Voilà mon agent (il tourne, il répond sur Telegram). J'ai peur qu'on puisse lui faire faire n'importe quoi s'il lit un texte hostile. Audite-le et dis-moi quoi corriger en premier.",
+      "expected_output": "Diagnostic classé par risque réel avec remédiation minimale pour chacun : exécution de code, validation des arguments d'outils, cloisonnement des conversations, borne de boucle, injection par sortie d'outil, fuite de secrets dans les logs ; exécution de check_invariants.py si le projet suit la structure, sinon revue manuelle des mêmes règles ; priorisation par impact et non par listage exhaustif.",
+      "assertions": [
+        "les constats sont triés par gravité avec pour chacun un correctif concret",
+        "la capacité d'exécution de code (eval / shell / import dynamique) est vérifiée en premier",
+        "la validation des arguments et le refus des champs inconnus sont vérifiés",
+        "le cloisonnement par chat_id dans les lectures et écritures est vérifié",
+        "les sorties d'outils injectées au modèle comme instructions sont identifiées comme risque d'injection",
+        "les vérifications annoncées sont réellement exécutées (commande + sortie citées) et non déduites de la seule lecture du code"
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "sync-evolutive-du-skill",
+      "prompt": "OpenGravity vient de changer : on a ajouté une commande /export qui écrit des fichiers au disque, on a retiré l'outil calculator, et on a basculé la mémoire sur Postgres. Mets à jour le skill Agent Builder en conséquence, versionne-le, et dis-moi ce qui a été remplacé plutôt que simplement ajouté.",
+      "expected_output": "L'agent lance detect_drift.py, classe les évolutions, décide du niveau de bump avec le barème, rafraîchit la référence, met à jour les passages concernés du SKILL.md et des references, supprime les règles devenues fausses, écrit une entrée CHANGELOG avec le champ preuve, et ne modifie rien de cosmétique.",
+      "files": [],
+      "assertions": [
+        "detect_drift.py est exécuté contre le projet et son classement (major/minor/patch) est cité",
+        "l'ajout d'un outil d'écriture disque déclenche une règle d'approbation et un invariants, pas seulement une ligne de doc",
+        "le retrait de calculator est propagé partout où il était cité (SKILL.md, blueprint, référence embarquée) — pas laissé vivant à côté de la nouvelle règle",
+        "le changement de moteur de mémoire est traité comme majeur et le barème de version est cité explicitement",
+        "refresh_reference.py est utilisé pour re-capturer la référence, avec analyse anti-fuite, plutôt qu'une copie manuelle",
+        "le CHANGELOG gagné porte les six champs requis, dont la preuve (commande exécutée et résultat brut)"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "ajout-voix-telegram",
+      "prompt": "Ajoute la voix à mon bot Telegram : je veux lui parler en vocal depuis la voiture et qu'il me réponde de même. Les audios ne doivent jamais rester sur le disque et je ne veux pas me ruiner en frais ElevenLabs.",
+      "expected_output": "Le skill réutilise la couche audio de la référence (src/audio/ + src/channels/telegram/files.ts) au lieu d'écrire un module neuf : transmission bornée et validée côté canal, transcription avant la boucle d'agent, synthèse ElevenLabs au format OGG/Opus, mode mirror, budgets aux deux bouts, zéro écriture disque, invariants relus 22/22 et test bout-en-bout ajouté. La clé API manquante est demandée à l'utilisateur, les voice_id et modèle sont lus sur le compte, jamais inventés.",
+      "files": [],
+      "assertions": [
+        "la transcription a lieu dans le canal avant la boucle d'agent et son résultat entre comme message utilisateur : elle n'est pas exposée comme un outil que le modèle déciderait d'appeler",
+        "le file_path renvoyé par le service de fichiers est validé avant usage, les redirections sont désactivées, et la taille est bornée à l'annonce PUIS pendant la lecture réelle",
+        "aucun octet audio n'est écrit sur le disque : la variante « fichier temporaire supprimé dans un finally » est refusée et remplacée par l'absence d'écriture",
+        "la réponse vocale part en OGG/Opus (output_format=opus_48000_64) via sendVoice, et le texte de la réponse est envoyé dans tous les cas",
+        "le budget de sortie est borné (TTS_MAX_CHARS) avec coupe sur une fin de phrase, et le budget d'entrée (MEDIA_MAX_BYTES) est distinct de la limite du protocole",
+        "le mode de prise de parole par défaut est expliqué à l'utilisateur, avec le fait qu'aucune voix n'est émise pendant qu'une approbation est en attente",
+        "le basculement du fournisseur de transcription principal vers le secours ne se déclenche que sur erreur transitoire ; une erreur d'authentification s'arrête et se voit",
+        "check_invariants.py est exécuté et doit annoncer 22/22 ; un test bout-en-bout vérifie que le répertoire de données ne contient aucun fichier audio après un tour vocal",
+        "les identifiants chez le fournisseur de voix (voice_id, modèle TTS/STT) sont vérifiés contre l'inventaire du compte, et la clé manquante est explicitement demandée au lieu d'être supposée"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "appel-vocal-en-direct",
+      "prompt": "Je veux un vrai appel vocal avec mon agent depuis Telegram : qu'il m'écoute en continu, que je puisse le couper pendant qu'il parle, et qu'il me réponde à voix haute le plus vite possible. Garde la mémoire et les outils tels qu'ils sont.",
+      "expected_output": "Avant de dessiner quoi que ce soit, l'agent vérifie ce que le canal autorise réellement et l'écrit : l'API Bot ne transporte aucun média d'appel, donc ni appel sortant ni flux montant par Telegram — et les notes vocales sont explicitement refusées comme réponse (ce n'est pas un appel). Il propose l'équivalent officiellement licite : une page servie par l'agent elle-même, un flux PCM sur websocket, une commande `/…` du MÊME agent (mêmes outils, même mémoire, même ordonnancement). Il découpe oreille et bouche derrière des contrats remplaçables, garde la décision de fin de tour locale, borne l'écoute (drapeau, boucle locale, billet à usage unique, liste blanche, débit, durée), n'écrit aucun octet audio sur disque, clôt l'appel avec un bilan idempotent, trace le canal en base, teste contre de faux fournisseurs, et propage la décision au skill avec les deux invariants qui la rendent mécanique.",
+      "files": [],
+      "assertions": [
+        "les limites du canal sont vérifiées contre la doc et énoncées AVANT tout choix d'architecture ; l'alternative « notes vocales » est nommée puis écartée comme ne répondant pas à la demande",
+        "aucun second cerveau : l'appel est une commande du même agent, qui réutilise la boucle bornée, la liste d'outils close et la mémoire existante",
+        "l'écoute d'un port est déclarée et bornée : module dédié (`src/realtime/`), mention `LISTEN-EXCEPTION:`, bascule de config lue AVANT `listen()`, 127.0.0.1 par défaut, billet à usage unique dans le fragment d'URL, liste blanche confrontée à la poignée de main, un seul port écouté",
+        "la fin de tour est décidée localement (VAD à énergie, commit manuel, pré-roll) et un transcript partiel ne déclenche jamais un tour : il nourrit l'affichage",
+        "un repli existe quand le fournisseur temps réel hoquette ou tombe : transcription en blocs pour CE tour, appel maintenu, note explicite — une dégradation n'est pas un échec d'appel",
+        "STT et TTS sont derrière des contrats séparés et une fabrique de sockets injectable ; des tests tournent contre un faux fournisseur local, sans clé et sans appel payant",
+        "zéro octet audio sur disque, clé en en-tête et non en query string, ni conversation ni corps de réponse fournisseur dans les journaux",
+        "l'interruption est implémentée avec un seuil relevé pendant que l'agent parle (sinon le haut-parleur s'auto-interrompt) et un `abort()` qui ne ferme pas le canal",
+        "la clôture est propre et idempotente (bilan, mémoire écrite, socket terminé, connexions HTTP fermées) et le canal du tour est tracé en base par migration additive",
+        "la page qui ouvre le micro embarque tout (script, styles, worklet en `blob:`), sans aucune ressource externe, avec CSP durcie et `Permissions-Policy: microphone=(self)`",
+        "les doubles de test (faux STT/TTS) valident les noms de champs exacts du client : un test « de latence » qui échoue est d'abord diagnostiqué en confrontant la trame reçue et le champ lu, jamais en ajoutant de la marge de temps",
+        "`check_invariants.py` est relancé, avec `listening-is-a-decision` et `call-page-isolated` au vert, et chaque règle nouvelle est prouvée par une mutation qui la fait échouer",
+        "la limite non prouvable dans l'environnement est écrite telle quelle : rendu réel dans le client du navigateur non validé sans l'utilisateur (pas de « ça devrait marcher »)"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "acces-compte-google",
+      "prompt": "Connecte mon agent à mon compte Google : qu'il lise mes mails, mes Docs, mes Sheets, mon Drive et mon agenda, et qu'il puisse écrire quand je le lui demande. Je ne veux pas qu'il puisse exécuter n'importe quelle requête Google, ni que mes mails finissent dans un journal.",
+      "expected_output": "Le skill expose des opérations typées et enregistrées (gmail_search, docs_read, sheets_append…), jamais un outil « google_request » ni un argv libre ; le périmètre est une liste blanche de config (GWS_SERVICES) qui refuse un nom inconnu au démarrage ; les écritures existent seulement sous GWS_ALLOW_WRITES + DANGEROUS_TOOLS_ENABLED et passent par un clic d'approbation ; l'environnement du processus fils est construit par filtrage (jamais un étalement de process.env) ; rien n'est écrit sur disque ; les journaux ne portent ni secret ni corps de message. Les limites sont énoncées avant d'implémenter : le consentement OAuth exige le navigateur de l'utilisateur, il n'existe pas de flux device dans le CLI. Un doctor maillon par maillon et une chaîne réelle de bout en bout ferment la preuve, avec un chapitre « vérifié / non vérifié » dans la doc.",
+      "files": [],
+      "assertions": [
+        "aucun outil ne prend un argv, une URL d'API ou un corps de requête comme argument : chaque capacité est un outil du registre avec un schéma validé, et les services hors GWS_SERVICES sont inatteignables",
+        "un service inconnu dans GWS_SERVICES ou une liste vide empêchent le démarrage (ConfigError, code 78) au lieu d'être ignorés silencieusement",
+        "les outils d'écriture sont masqués du registre quand GWS_ALLOW_WRITES est faux, et déclarés dangerous + requiresApproval quand il est vrai : le modèle ne tente pas ce qui est interdit, il ne peut seulement pas le voir",
+        "l'environnement transmis au processus fils est produit par un filtre (liste de noms autorisés + prefixes restreints), et une assertion de test porte sur l'environnement réellement reçu par le fils, enregistré par le double",
+        "le projet ne définit aucune variable d'environnement qu'il ne câble pas : un GOOGLE_APPLICATION_CREDENTIALS déclaré et inutilisé a déjà suffi à invalider l'authentification du CLI Google",
+        "les codes de sortie du client sont traduits en classes nommées (auth, rate_limit, notFound, timeout, transport…) avec pour chacune la commande qui répare ; un code 0 n'est jamais traité comme la preuve d'une réponse saine",
+        "une écriture n'est jamais rejouée, et un timeout n'est jamais rejoué non plus : le budget déjà consommé est exactement celui qu'on repayerait",
+        "les outils sont déclarés dès que le moyen d'accès existe ; l'absence de compte produit un avertissement au démarrage, une réponse d'outil nommée et une ligne dans /google — pas une disparition silencieuse de la capacité, qui imposerait un redémarrage après login",
+        "aucune réponse d'API n'est écrite sur disque ; les extraits sont bornés à GWS_MAX_OUTPUT_BYTES et la troncature est annoncée dans le texte remis au modèle",
+        "un doctor (exit 0/1/78, aucun contenu privé imprimé) et un script de chaîne réelle (mémoire jetable hors historique, livraison canalaire contrôlée) existent et ont été exécutés contre le vrai binaire",
+        "la documentation se termine par la liste de ce qui a été vérifié en réel et de ce qui ne l'a pas été, nommément : un appel rapportant une donnée réelle et une écriture appliquée après clic"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "contrat-sans-lecteur",
+      "prompt": "Avant de livrer mon agent, audite les interfaces : je soupçonne qu'on a ajouté des champs « pour plus tard » que personne n'utilise, et que certains messages d'erreur promis à l'utilisateur n'arrivent jamais.",
+      "expected_output": "Le skill inventorie les champs des interfaces de contrat, cherche un lecteur pour chacun hors du fichier qui les déclare, puis tranche : câbler la consommation (et le vérifier par test) ou retirer le champ. Il refuse l'option « laisser, c'est documenté » : un champ produit et jamais lu est une interface qui ment sur sa garantie, exactement comme une clé .env déclarée et non câblée. Il ajoute la garde au vérificateur d'invariants pour qu'elle ne revienne pas, et il re-invalide la garde par mutation avant de la considérer comme une règle.",
+      "files": [],
+      "assertions": [
+        "la recherche du lecteur porte sur le code de production commenté-déduit, hors fichier de définition : un champ lu uniquement dans un test ne compte pas comme consommé",
+        "le choix est explicite pour chaque champ sans lecteur : câblé, retiré, ou marqué comme sortie attendue (journal, audit) — jamais « gardé pour plus tard »",
+        "un refus d'outil atteint l'utilisateur par un chemin testé : l'avis opératif part dans son propre message, séparé de la réponse, pour n'être jamais lu à voix haute pendant un appel",
+        "la garde ajoutée au vérificateur est re-invalidée par mutation (champ rendu illisible → FAIL) avant que la règle soit annoncée comme tenue",
+        "les mêmes conditions structurelles s'appliquent aux exemptions d'invariants : un marqueur dans un commentaire ne suffit pas si le code ne prouve pas la contrepartie"
+      ]
+    }
+  ]
+}

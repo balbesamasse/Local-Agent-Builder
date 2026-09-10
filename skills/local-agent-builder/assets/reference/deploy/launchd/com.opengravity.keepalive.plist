@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Troisième étage, côté macOS : KeepAlive sur `scripts/keepalive.sh loop`.
+
+  Ce fichier ne contient AUCUNE clé : le bot lit son `.env` lui même (dotenv), launchd n'a
+  donc rien à transporter. Remplace les deux occurrences de /CHEMIN/vers/opengravity, puis :
+
+    launchctl load   ~/Library/LaunchAgents/com.opengravity.keepalive.plist
+    launchctl start  com.opengravity.keepalive
+    bash scripts/keepalive.sh status
+
+  Pourquoi lancer la VEILLE et non l'agent directement : si launchd tenait l'agent, le
+  superviseur ne serait plus là pour digérer les crashes ; et si launchd tenait le superviseur,
+  les trois codes de sortie (0, 75, 78) se perdraient dans un redémarrage automatique qui ne
+  les lit pas. Un étage, une responsabilité.
+-->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.opengravity.keepalive</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/CHEMIN/vers/opengravity/scripts/keepalive.sh</string>
+    <string>loop</string>
+  </array>
+  <key>WorkingDirectory</key><string>/CHEMIN/vers/opengravity</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/CHEMIN/vers/opengravity/logs/keepalive.log</string>
+  <key>StandardErrorPath</key><string>/CHEMIN/vers/opengravity/logs/keepalive.log</string>
+  <key>ThrottleInterval</key><integer>30</integer>
+</dict></plist>

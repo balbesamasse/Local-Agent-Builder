@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  invariants:
+    name: Invariants de sécurité (22 règles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Vérifier les invariants sur l'implémentation de référence
+        working-directory: skills/local-agent-builder
+        run: python3 scripts/check_invariants.py assets/reference
+
+      - name: Compiler tous les scripts Python
+        run: python3 -m compileall -q skills/
+
+  scaffold:
+    name: Le générateur produit un agent conforme
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Générer un agent de test
+        working-directory: skills/local-agent-builder
+        run: python3 scripts/scaffold.py --name "CI Agent" --out /tmp/ci-agent --timezone "Europe/Paris"
+
+      - name: L'agent généré doit passer les 22 invariants
+        working-directory: skills/local-agent-builder
+        run: python3 scripts/check_invariants.py /tmp/ci-agent
+
+      - name: Aucun secret ne doit avoir été copié
+        run: |
+          test ! -f /tmp/ci-agent/.env || (echo "FUITE: .env copié dans l'agent généré" && exit 1)
+          echo "OK — aucun .env dans le projet généré"
+
+  manifests:
+    name: Manifestes du plugin valides
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Valider le JSON des manifestes
+        run: |
+          python3 -m json.tool .claude-plugin/plugin.json > /dev/null
+          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          python3 -m json.tool skills/local-agent-builder/evals/evals.json > /dev/null
+          echo "OK — plugin.json, marketplace.json et evals.json sont valides"
+
+  secrets:
+    name: Aucun secret committé
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scanner les motifs de secrets
+        run: |
+          if grep -rInE "(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{30,}|[0-9]{9,10}:AA[A-Za-z0-9_-]{33}|-----BEGIN [A-Z ]*PRIVATE KEY)" . \
+             --exclude-dir=.git --exclude-dir=.github \
+             | grep -viE "example|placeholder|your|redact|fake|test"; then
+            echo "Secret potentiel détecté" && exit 1
+          fi
+          echo "OK — aucun secret détecté"

@@ -1,0 +1,43 @@
+{
+  "name": "opengravity",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Agent IA personnel local, interface Telegram unique, sécurité d'abord.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start": "node --env-file=.env dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --import tsx --test-reporter=spec src/test/*.test.ts",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "voice:check": "tsx --env-file=.env src/testing/live-voice-check.ts",
+    "supervise": "node --import tsx src/supervise.ts",
+    "supervise:dist": "node dist/supervise.js --command node dist/index.js",
+    "google:check": "tsx --env-file=.env src/testing/google-check.ts",
+    "google:check:offline": "tsx --env-file=.env src/testing/google-check.ts --offline",
+    "google:setup": "gws auth setup",
+    "google:login": "gws auth login -s gmail,drive,docs,sheets,calendar",
+    "google:status": "gws auth status",
+    "google:revoke": "gws auth logout",
+    "google:live": "tsx --env-file=.env src/testing/live-chain.ts"
+  },
+  "dependencies": {
+    "@googleworkspace/cli": "^0.22.5",
+    "better-sqlite3": "^11.10.0",
+    "dotenv": "^16.4.7",
+    "grammy": "^1.38.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.17.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

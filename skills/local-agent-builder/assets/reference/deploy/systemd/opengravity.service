@@ -1,0 +1,29 @@
+# Troisième étage, côté Linux : systemd tient la veille, la veille tient le superviseur,
+# le superviseur tient l'agent. Aucun secret ici : le bot relit son `.env` lui-même.
+#
+#   sudo cp deploy/systemd/opengravity.service /etc/systemd/system/   (ou dans ~/.config/systemd/user/)
+#   # éditer WorkingDirectory/ExecStart/ExecReload pour ton chemin réel, puis :
+#   systemctl daemon-reload && systemctl --user enable --now opengravity.service
+#   systemctl --user status opengravity.service
+#
+# `ExecReload` envoie SIGHUP : le bot journalise et repart, il ne meurt pas d'un `kill -9`.
+[Unit]
+Description=OpenGravity (veille du superviseur, puis de l'agent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/CHEMIN/vers/opengravity
+ExecStart=/bin/bash /CHEMIN/vers/opengravity/scripts/keepalive.sh loop
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+# La veille ne fait que relancer : pas de réseau sortant large, pas d'écriture hors du projet.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/CHEMIN/vers/opengravity
+
+[Install]
+WantedBy=default.target
